@@ -1,0 +1,52 @@
+[project]
+name = "fabpilot"
+version = "0.1.0"
+description = "FabPilot backend: self-hosted LLM agent for industrial process & quality data"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = "MIT"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic-settings>=2.6",
+    "sqlalchemy>=2.0.36",
+    "psycopg[binary]>=3.2",
+    "numpy>=2.1",
+    "httpx>=0.28",
+]
+
+[project.scripts]
+fabpilot-datagen = "fabpilot.datagen.cli:main"
+fabpilot-datasets = "fabpilot.datasets.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fabpilot"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "db: needs a running PostgreSQL initialised with db/init (skipped otherwise)",
+]
+addopts = "-ra"
+filterwarnings = [
+    # Starlette nudges towards httpx2; harmless for TestClient.
+    "ignore:Using `httpx` with `starlette.testclient`",
+]

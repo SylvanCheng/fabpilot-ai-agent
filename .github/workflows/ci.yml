@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (ruff + pytest)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+      - name: Initialise databases
+        run: FABPILOT_SQL_DIR=../db bash ../db/init/10-fabpilot-init.sh
+      - name: Test (unit + DB integration)
+        run: uv run pytest
+      - name: Smoke-run the data generator
+        run: uv run fabpilot-datagen --lots-per-product 20
+        env:
+          FAB_LOADER_DSN: postgresql://fab_loader:fab_loader@localhost:5432/fab_business
+
+  frontend:
+    name: Frontend (dotnet build + format)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - run: dotnet restore FabPilot.sln
+      - run: dotnet build FabPilot.sln --no-restore -c Release -warnaserror
+      - run: dotnet format FabPilot.sln --verify-no-changes --no-restore
+
+  compose:
+    name: Docker Compose config + image builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp .env.example .env && docker compose config -q
+      - run: docker compose build backend frontend

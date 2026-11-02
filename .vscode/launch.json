@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Backend: FastAPI (uvicorn --reload)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["fabpilot.main:app", "--reload", "--port", "8000"],
+      "cwd": "${workspaceFolder}/backend",
+      "envFile": "${workspaceFolder}/.env",
+      "jinja": true
+    },
+    {
+      "name": "Frontend: Blazor",
+      "type": "dotnet",
+      "request": "launch",
+      "projectPath": "${workspaceFolder}/frontend/FabPilot.Web/FabPilot.Web.csproj"
+    }
+  ]
+}

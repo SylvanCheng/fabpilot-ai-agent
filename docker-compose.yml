@@ -1,0 +1,68 @@
+# Local stack: PostgreSQL (+pgvector), FastAPI backend, Blazor frontend.
+# The LLM is NOT here: it runs on a rented cloud GPU (Ollama or vLLM) and is reached via LLM_BASE_URL.
+#
+#   cp .env.example .env
+#   docker compose up -d --build
+#   docker compose --profile tools run --rm datagen      # load synthetic fab data
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      FAB_LOADER_PASSWORD: ${FAB_LOADER_PASSWORD:?set FAB_LOADER_PASSWORD in .env}
+      FAB_READER_PASSWORD: ${FAB_READER_PASSWORD:?set FAB_READER_PASSWORD in .env}
+      FABPILOT_APP_PASSWORD: ${FABPILOT_APP_PASSWORD:?set FABPILOT_APP_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+      - ./db:/fabpilot-db:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fabpilot_app"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build: ./backend
+    env_file: .env
+    environment:
+      BUSINESS_DB_URL: postgresql+psycopg://fab_reader:${FAB_READER_PASSWORD}@postgres:5432/fab_business
+      APP_DB_URL: postgresql+psycopg://fabpilot_app:${FABPILOT_APP_PASSWORD}@postgres:5432/fabpilot_app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  frontend:
+    build: ./frontend
+    environment:
+      Backend__BaseUrl: http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:5000:8080"
+
+  # One-shot: `docker compose --profile tools run --rm datagen`
+  datagen:
+    build: ./backend
+    profiles: ["tools"]
+    environment:
+      FAB_LOADER_DSN: postgresql://fab_loader:${FAB_LOADER_PASSWORD}@postgres:5432/fab_business
+    command: ["fabpilot-datagen"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

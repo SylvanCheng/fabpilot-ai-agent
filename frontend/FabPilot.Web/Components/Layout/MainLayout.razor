@@ -1,0 +1,21 @@
+@inherits LayoutComponentBase
+
+<div class="shell">
+    <aside class="sidebar">
+        <div class="brand">FabPilot</div>
+        <nav>
+            <NavLink href="" Match="NavLinkMatch.All">System status</NavLink>
+            <NavLink href="chat">Chat</NavLink>
+        </nav>
+        <footer>Synthetic &amp; public data only</footer>
+    </aside>
+    <main class="content">
+        @Body
+    </main>
+</div>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>

@@ -1,0 +1,75 @@
+@page "/"
+@inject BackendClient Backend
+
+<PageTitle>FabPilot · Status</PageTitle>
+
+<h1>System status</h1>
+<p class="muted">Backend readiness, as reported by <code>/health/ready</code>.</p>
+
+@if (_loading)
+{
+    <p>Checking…</p>
+}
+else if (_error is not null)
+{
+    <div class="card bad">
+        <strong>Backend unreachable.</strong> @_error
+        <p class="muted">Is the API running on the configured <code>Backend:BaseUrl</code>?</p>
+    </div>
+}
+else if (_ready is not null)
+{
+    <div class="card @(_ready.Status == "ok" ? "good" : "bad")">
+        <strong>API @_ready.Status</strong> · version @_ready.Version
+    </div>
+
+    <table class="grid">
+        <thead><tr><th>Check</th><th>Status</th><th>Latency</th></tr></thead>
+        <tbody>
+            @foreach (var (name, check) in _ready.Checks)
+            {
+                <tr>
+                    <td>@name</td>
+                    <td>@(check.Ok ? "ok" : $"down ({check.Error})")</td>
+                    <td>@(check.LatencyMs is { } ms ? $"{ms} ms" : "–")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <h2>LLM backend</h2>
+    <p>
+        <code>@_ready.Llm.Provider</code> · <code>@_ready.Llm.Model</code> at
+        <code>@_ready.Llm.BaseUrl</code>
+        <span class="muted">(configured, not probed)</span>
+    </p>
+}
+
+<button class="btn" @onclick="RefreshAsync" disabled="@_loading">Refresh</button>
+
+@code {
+    private Readiness? _ready;
+    private string? _error;
+    private bool _loading = true;
+
+    protected override Task OnInitializedAsync() => RefreshAsync();
+
+    private async Task RefreshAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _ready = await Backend.GetReadinessAsync();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            _ready = null;
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}
