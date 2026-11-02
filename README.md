@@ -31,7 +31,7 @@ See [docs/roadmap.md](docs/roadmap.md) for detail.
 ## Architecture
 
 ```
- Browser ──► Blazor Web App (.NET 8, Interactive Server)  :5000      thin UI, depends on IFabPilotApi
+ Browser ──► Blazor Web App (.NET 8, Interactive Server)  :5080      thin UI, depends on IFabPilotApi
                  │  HTTP /api/v1   (contract: contracts/openapi.json)
                  ▼
             FastAPI backend (Python 3.12)  :8000 ──► LLM (Qwen) on rented cloud GPU
@@ -136,7 +136,7 @@ docker compose up -d --build               # postgres + backend + frontend
 docker compose --profile tools run --rm datagen   # load synthetic fab data
 ```
 
-- Frontend: <http://localhost:5000> (System status page shows DB checks)
+- Frontend: <http://localhost:5080> (System status page shows DB checks)
 - API docs: <http://localhost:8000/docs>
 
 Reset the databases: `docker compose down -v` (deletes the volume), then `up` again.
@@ -155,7 +155,7 @@ uv run uvicorn fabpilot.main:create_app --factory --reload  # http://localhost:8
 
 # second terminal
 cd frontend/FabPilot.Web
-dotnet watch                               # http://localhost:5000
+dotnet watch                               # http://localhost:5080
 ```
 
 Or use VS Code's *Run and Debug* panel: **Backend: FastAPI** and **Frontend: Blazor**.

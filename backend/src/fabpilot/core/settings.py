@@ -22,7 +22,7 @@ class AppSettings(EnvSettings):
     app_env: Literal["dev", "test", "prod"] = "dev"
     log_level: str = "INFO"
     # Comma-separated origins allowed to call the API from a browser.
-    cors_origins: str = "http://localhost:5000"
+    cors_origins: str = "http://localhost:5080"
     # Application DB (agent-owned data: conversations, audit, RAG). Shared infrastructure;
     # each module that stores data owns its own tables in it.
     app_db_url: str = "postgresql+psycopg://fabpilot_app:fabpilot_app@localhost:5432/fabpilot_app"

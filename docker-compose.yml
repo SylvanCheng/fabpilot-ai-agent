@@ -51,7 +51,7 @@ services:
       backend:
         condition: service_healthy
     ports:
-      - "127.0.0.1:5000:8080"
+      - "127.0.0.1:5080:8080"  # not 5000: macOS AirPlay Receiver uses it
 
   # One-shot: `docker compose --profile tools run --rm datagen`
   datagen:
