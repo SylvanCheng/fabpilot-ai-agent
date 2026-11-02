@@ -16,13 +16,15 @@ dependencies = [
 ]
 
 [project.scripts]
-fabpilot-datagen = "fabpilot.datagen.cli:main"
-fabpilot-datasets = "fabpilot.datasets.cli:main"
+fabpilot-datagen = "fabpilot.devtools.datagen.cli:main"
+fabpilot-datasets = "fabpilot.devtools.datasets.cli:main"
+fabpilot-export-openapi = "fabpilot.devtools.export_openapi:main"
 
 [dependency-groups]
 dev = [
     "pytest>=8.3",
     "ruff>=0.8",
+    "import-linter>=2.1",
 ]
 
 [build-system]
@@ -50,3 +52,43 @@ filterwarnings = [
     # Starlette nudges towards httpx2; harmless for TestClient.
     "ignore:Using `httpx` with `starlette.testclient`",
 ]
+
+# Architecture rules, checked in CI with `uv run lint-imports`.
+# See docs/architecture.md for the reasoning behind each contract.
+[tool.importlinter]
+root_package = "fabpilot"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Layers: composition root -> modules -> core"
+type = "layers"
+layers = [
+    "fabpilot.devtools",
+    "fabpilot.main",
+    "fabpilot.modules",
+    "fabpilot.core",
+]
+
+[[tool.importlinter.contracts]]
+name = "Modules are independent of each other"
+type = "independence"
+modules = [
+    "fabpilot.modules.health",
+    "fabpilot.modules.fabdata",
+    "fabpilot.modules.llm",
+]
+
+[[tool.importlinter.contracts]]
+name = "Domain code (service, ports) is framework- and driver-free"
+type = "forbidden"
+source_modules = [
+    "fabpilot.modules.*.service",
+    "fabpilot.modules.*.ports",
+]
+forbidden_modules = ["fastapi", "sqlalchemy", "psycopg", "httpx"]
+
+[[tool.importlinter.contracts]]
+name = "Only adapters and wiring pick concrete infrastructure"
+type = "forbidden"
+source_modules = ["fabpilot.modules.*.api"]
+forbidden_modules = ["fabpilot.modules.*.adapters", "sqlalchemy", "psycopg"]

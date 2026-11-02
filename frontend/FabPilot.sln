@@ -5,6 +5,8 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FabPilot.Web", "FabPilot.Web\FabPilot.Web.csproj", "{E1A43130-79CA-47FE-AD65-4DF03C06A151}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FabPilot.Web.Tests", "FabPilot.Web.Tests\FabPilot.Web.Tests.csproj", "{06C68E5E-BD0F-4486-9DD9-24448663228B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{E1A43130-79CA-47FE-AD65-4DF03C06A151}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E1A43130-79CA-47FE-AD65-4DF03C06A151}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E1A43130-79CA-47FE-AD65-4DF03C06A151}.Release|Any CPU.Build.0 = Release|Any CPU
+		{06C68E5E-BD0F-4486-9DD9-24448663228B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{06C68E5E-BD0F-4486-9DD9-24448663228B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{06C68E5E-BD0F-4486-9DD9-24448663228B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{06C68E5E-BD0F-4486-9DD9-24448663228B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

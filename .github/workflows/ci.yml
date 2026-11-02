@@ -39,9 +39,11 @@ jobs:
         run: |
           uv run ruff check .
           uv run ruff format --check .
+      - name: Architecture rules (module boundaries)
+        run: uv run lint-imports
       - name: Initialise databases
         run: FABPILOT_SQL_DIR=../db bash ../db/init/10-fabpilot-init.sh
-      - name: Test (unit + DB integration)
+      - name: Test (unit + contract + DB integration)
         run: uv run pytest
       - name: Smoke-run the data generator
         run: uv run fabpilot-datagen --lots-per-product 20
@@ -49,7 +51,7 @@ jobs:
           FAB_LOADER_DSN: postgresql://fab_loader:fab_loader@localhost:5432/fab_business
 
   frontend:
-    name: Frontend (dotnet build + format)
+    name: Frontend (build + format + tests)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -62,6 +64,7 @@ jobs:
       - run: dotnet restore FabPilot.sln
       - run: dotnet build FabPilot.sln --no-restore -c Release -warnaserror
       - run: dotnet format FabPilot.sln --verify-no-changes --no-restore
+      - run: dotnet test FabPilot.sln --no-build -c Release
 
   compose:
     name: Docker Compose config + image builds

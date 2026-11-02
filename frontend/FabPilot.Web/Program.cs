@@ -1,19 +1,11 @@
+using FabPilot.Web.Api;
 using FabPilot.Web.Components;
-using FabPilot.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
-
-// Backend URL comes from configuration (appsettings / env var Backend__BaseUrl), never hard-coded.
-var backendUrl = builder.Configuration["Backend:BaseUrl"]
-    ?? throw new InvalidOperationException("Backend:BaseUrl is not configured");
-builder.Services.AddHttpClient<BackendClient>(c =>
-{
-    c.BaseAddress = new Uri(backendUrl.TrimEnd('/') + "/");
-    c.Timeout = TimeSpan.FromSeconds(10);
-});
+builder.Services.AddFabPilotApi(builder.Configuration);
 
 var app = builder.Build();
 
@@ -30,3 +22,6 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+// Exposed for WebApplicationFactory-based tests.
+public partial class Program;

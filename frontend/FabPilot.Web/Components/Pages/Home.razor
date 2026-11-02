@@ -1,10 +1,10 @@
 @page "/"
-@inject BackendClient Backend
+@inject IFabPilotApi Api
 
 <PageTitle>FabPilot · Status</PageTitle>
 
 <h1>System status</h1>
-<p class="muted">Backend readiness, as reported by <code>/health/ready</code>.</p>
+<p class="muted">Readiness from <code>/health/ready</code>; dataset size from <code>/api/v1/fab/overview</code>.</p>
 
 @if (_loading)
 {
@@ -14,17 +14,17 @@ else if (_error is not null)
 {
     <div class="card bad">
         <strong>Backend unreachable.</strong> @_error
-        <p class="muted">Is the API running on the configured <code>Backend:BaseUrl</code>?</p>
+        <p class="muted">Is the API running at the configured <code>Backend:BaseUrl</code>?</p>
     </div>
 }
 else if (_ready is not null)
 {
-    <div class="card @(_ready.Status == "ok" ? "good" : "bad")">
+    <div class="card @(_ready.IsOk ? "good" : "bad")">
         <strong>API @_ready.Status</strong> · version @_ready.Version
     </div>
 
     <table class="grid">
-        <thead><tr><th>Check</th><th>Status</th><th>Latency</th></tr></thead>
+        <thead><tr><th>Check</th><th>Status</th><th>Latency</th><th>Detail</th></tr></thead>
         <tbody>
             @foreach (var (name, check) in _ready.Checks)
             {
@@ -32,24 +32,39 @@ else if (_ready is not null)
                     <td>@name</td>
                     <td>@(check.Ok ? "ok" : $"down ({check.Error})")</td>
                     <td>@(check.LatencyMs is { } ms ? $"{ms} ms" : "–")</td>
+                    <td class="muted">@string.Join(" · ", (check.Detail ?? []).Select(kv => $"{kv.Key}={kv.Value}"))</td>
                 </tr>
             }
         </tbody>
     </table>
 
-    <h2>LLM backend</h2>
-    <p>
-        <code>@_ready.Llm.Provider</code> · <code>@_ready.Llm.Model</code> at
-        <code>@_ready.Llm.BaseUrl</code>
-        <span class="muted">(configured, not probed)</span>
-    </p>
+    <h2>Fab dataset</h2>
+    @if (_overview is null)
+    {
+        <p class="muted">@(_overviewError ?? "No data.")</p>
+    }
+    else
+    {
+        <p>
+            <strong>@_overview.LotCount</strong> lots
+            (@string.Join(", ", _overview.LotsByStatus.Select(kv => $"{kv.Key} {kv.Value}"))),
+            <strong>@_overview.WaferCount</strong> wafers,
+            <strong>@_overview.EquipmentCount</strong> tools.
+            @if (_overview.FirstLotStart is { } first && _overview.LastLotStart is { } last)
+            {
+                <span class="muted">Lots started @first.ToString("yyyy-MM-dd") – @last.ToString("yyyy-MM-dd").</span>
+            }
+        </p>
+    }
 }
 
 <button class="btn" @onclick="RefreshAsync" disabled="@_loading">Refresh</button>
 
 @code {
     private Readiness? _ready;
+    private FabOverview? _overview;
     private string? _error;
+    private string? _overviewError;
     private bool _loading = true;
 
     protected override Task OnInitializedAsync() => RefreshAsync();
@@ -57,14 +72,20 @@ else if (_ready is not null)
     private async Task RefreshAsync()
     {
         _loading = true;
-        _error = null;
+        _error = _overviewError = null;
+        _ready = null;
+        _overview = null;
         try
         {
-            _ready = await Backend.GetReadinessAsync();
+            _ready = await Api.GetReadinessAsync();
+            _overview = await Api.GetFabOverviewAsync();
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        catch (FabPilotApiException ex) when (_ready is not null)
         {
-            _ready = null;
+            _overviewError = ex.Message;   // health ok but data endpoint failed (e.g. DB empty/down)
+        }
+        catch (FabPilotApiException ex)
+        {
             _error = ex.Message;
         }
         finally

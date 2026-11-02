@@ -6,7 +6,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "uvicorn",
-      "args": ["fabpilot.main:app", "--reload", "--port", "8000"],
+      "args": ["fabpilot.main:create_app", "--factory", "--reload", "--port", "8000"],
       "cwd": "${workspaceFolder}/backend",
       "envFile": "${workspaceFolder}/.env",
       "jinja": true

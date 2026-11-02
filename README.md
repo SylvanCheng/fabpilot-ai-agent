@@ -18,7 +18,7 @@ layer, run analysis tools, and answer with evidence.
 
 | Phase | Scope | State |
 |---|---|---|
-| **P0** | Repo, Docker Compose, DB schemas, synthetic data, dataset downloaders, health API, Blazor shell, CI | ✅ this commit |
+| **P0** | Architecture & process foundation: modular backend, contracts, DB schemas, synthetic data, dataset tooling, Blazor shell, CI | ✅ |
 | P1 | Minimal agent loop (LangChain + Qwen via OpenAI-compatible API) | next |
 | P2 | Token streaming over SSE to Blazor | |
 | P3 | Tools: governed SQL, SPC/stats, wafer-map classifier, Excel export | |
@@ -31,44 +31,52 @@ See [docs/roadmap.md](docs/roadmap.md) for detail.
 ## Architecture
 
 ```
- Browser ──► Blazor Web App (.NET 8, Interactive Server)  :5000
-                 │  HTTP (later SSE)
+ Browser ──► Blazor Web App (.NET 8, Interactive Server)  :5000      thin UI, depends on IFabPilotApi
+                 │  HTTP /api/v1   (contract: contracts/openapi.json)
                  ▼
             FastAPI backend (Python 3.12)  :8000 ──► LLM (Qwen) on rented cloud GPU
-                 │                                   Ollama (dev) / vLLM (prod)
-                 │                                   OpenAI-compatible, chosen in .env
+            modular monolith                          Ollama (dev) / vLLM (prod),
+            core ◄─ modules ◄─ main ◄─ devtools       OpenAI-compatible, chosen in .env
+                 │
         ┌────────┴─────────┐
         ▼                  ▼
   fab_business DB     fabpilot_app DB
-  (synthetic fab,     (users, chats, tool-call audit,
+  (synthetic fab,     (chats, tool-call audit,
    read-only role)     RAG chunks with pgvector)
-              PostgreSQL 16
 ```
 
-| Choice | Why |
+Engineering principles, each enforced by a tool rather than by discipline alone:
+
+| Principle | How |
 |---|---|
-| Separate business / app databases | The agent's DB role on business data is `SELECT`-only and every session is forced read-only. Agent state never mixes with source data. |
-| OpenAI-compatible LLM endpoint | Ollama and vLLM both speak it, so dev → prod is a `.env` change (`LLM_BASE_URL`, `LLM_MODEL`). |
-| Blazor Interactive Server | Common in .NET-centric manufacturing IT; server-side rendering keeps the LLM backend off the public internet. |
-| Synthetic data with injected faults | Gives P3 tools and P6 evals a known ground truth (see [docs/synthetic-data.md](docs/synthetic-data.md)). |
+| High cohesion | One module per capability (`health`, `fabdata`, `llm`, later `chat`, `tools`, `rag`), each with its own settings, ports, adapters and API. |
+| Low coupling | Modules never import each other; framework-free domain code. Checked by **import-linter** in CI. |
+| Explicit interfaces | Python `Protocol` ports inside the backend; versioned HTTP API with a committed **OpenAPI contract**, verified by backend *and* frontend tests. |
+| One error shape | RFC 9457 `application/problem+json` everywhere. |
+| Config, not code | All environment differences (DB, LLM backend) are env vars. |
+| Decisions written down | [Architecture Decision Records](docs/adr/). |
+
+More: [docs/architecture.md](docs/architecture.md) · [workflow](docs/process/workflow.md) ·
+[backlog](docs/backlog.md) · [synthetic data](docs/synthetic-data.md).
 
 ## Repository layout
 
 ```
-backend/            FastAPI app (uv, ruff, pytest)
+backend/                 FastAPI app (uv, ruff, pytest, import-linter)
   src/fabpilot/
-    api/            HTTP routes (health only in P0)
-    datagen/        synthetic fab data generator  → `fabpilot-datagen`
-    datasets/       SECOM / WM-811K download + loaders → `fabpilot-datasets`
-  tests/
-frontend/           Blazor Web App (FabPilot.sln)
-db/
-  init/             role/database bootstrap (runs on first Postgres start)
-  business/         synthetic fab schema (lot, wafer, step, equipment, measurement, …)
-  app/              agent schema (conversation, message, tool_call, document_chunk …)
-data/raw/           downloaded public datasets (git-ignored)
-docs/
-.github/workflows/  CI: lint + tests + builds
+    core/                shared kernel: settings, errors, logging, DB factory, HealthCheck port
+    modules/             health · fabdata · llm   (one folder = one module)
+    main.py              composition root: wires modules together
+    devtools/            datagen (`fabpilot-datagen`), datasets, OpenAPI export
+  tests/                 unit (fakes) · contract · integration (real Postgres)
+frontend/
+  FabPilot.Web/          Blazor Web App; Api/ = IFabPilotApi + contract DTOs
+  FabPilot.Web.Tests/    xUnit: API client + contract tests
+contracts/openapi.json   generated API contract (committed, checked in CI)
+db/                      init script, business schema, app schema
+docs/                    architecture, ADRs, workflow, backlog, roadmap
+data/raw/                downloaded public datasets (git-ignored)
+Makefile                 `make help` lists common tasks
 ```
 
 ## Quickstart
@@ -143,7 +151,7 @@ docker compose up -d postgres
 cd backend
 uv sync                                    # creates backend/.venv
 uv run fabpilot-datagen                    # load synthetic data (uses FAB_LOADER_DSN from ../.env)
-uv run uvicorn fabpilot.main:app --reload  # http://localhost:8000/docs
+uv run uvicorn fabpilot.main:create_app --factory --reload  # http://localhost:8000/docs
 
 # second terminal
 cd frontend/FabPilot.Web
@@ -179,12 +187,13 @@ Files land in `data/raw/` and are never committed.
 ## Quality checks
 
 ```bash
-cd backend && uv run ruff check . && uv run ruff format --check . && uv run pytest
-cd frontend && dotnet build -warnaserror && dotnet format --verify-no-changes
+make check      # ruff format/lint, import-linter, dotnet format, pytest, dotnet test
+make contract   # after changing the API: regenerate contracts/openapi.json
 ```
 
 DB integration tests run automatically when a Postgres initialised by `db/init` is reachable
-(CI always provides one) and are skipped otherwise.
+(CI always provides one) and are skipped otherwise. How work flows from story to release is in
+[docs/process/workflow.md](docs/process/workflow.md).
 
 ## License
 
